@@ -23,6 +23,10 @@ log = logging.getLogger(__name__)
 import socket    # Basic TCP/IP communication on the internet
 import _thread   # Response computation runs concurrently with main program
 
+import os
+
+# store starting directory
+home = os.getcwd()
 
 def listen(portnum):
     """
@@ -34,11 +38,14 @@ def listen(portnum):
        A server socket, unless connection fails (e.g., because
        the port is already in use).
     """
+
     # Internet, streaming socket
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
     # Bind to port and make accessible from anywhere that has our IP address
     serversocket.bind(('', portnum))
     serversocket.listen(1)    # A real server would have multiple listeners
+    
     return serversocket
 
 
@@ -53,11 +60,13 @@ def serve(sock, func):
         For each connection, func is called on a client socket connected
         to the connected client, running concurrently in its own thread.
     """
+
     while True:
         log.info("Attempting to accept a connection on {}".format(sock))
+
+        # "Accept connection from outside"
         (clientsocket, address) = sock.accept()
         _thread.start_new_thread(func, (clientsocket,))
-
 
 ##
 # Starter version only serves cat pictures. In fact, only a
@@ -77,22 +86,53 @@ STATUS_FORBIDDEN = "HTTP/1.0 403 Forbidden\n\n"
 STATUS_NOT_FOUND = "HTTP/1.0 404 Not Found\n\n"
 STATUS_NOT_IMPLEMENTED = "HTTP/1.0 401 Not Implemented\n\n"
 
-
 def respond(sock):
     """
     This server responds only to GET requests (not PUT, POST, or UPDATE).
     Any valid GET request is answered with an ascii graphic of a cat.
     """
+
     sent = 0
+    
     request = sock.recv(1024)  # We accept only short requests
     request = str(request, encoding='utf-8', errors='strict')
+    
     log.info("--- Received request ----")
     log.info("Request was {}\n***\n".format(request))
 
+    # get files (if any) from pages
+    files = os.listdir("pages/")
+
     parts = request.split()
     if len(parts) > 1 and parts[0] == "GET":
-        transmit(STATUS_OK, sock)
-        transmit(CAT, sock)
+
+        # check request for illegal chars (.. or ~)
+        if ("~" in parts[1]) or (".." in parts[1]):
+            transmit(STATUS_FORBIDDEN, sock)
+            transmit("Request cannot include characters ~ or ..\n", sock)
+
+        # if no files exist in pages...
+        elif (len(files) == 0):
+            transmit(STATUS_NOT_FOUND, sock)
+            transmit("No files found in DOCROOT!", sock)
+
+        # if files do exist in pages...
+        else:
+            transmit(STATUS_OK, sock)
+
+            os.chdir("./pages")
+            
+            for file in files:
+
+                f = open(file, 'r')
+                for line in f.readlines():
+                    transmit(line, sock)
+                f.close()
+
+            os.chdir(home)
+
+        #transmit(STATUS_OK, sock)
+        #transmit(CAT, sock)
     else:
         log.info("Unhandled request: {}".format(request))
         transmit(STATUS_NOT_IMPLEMENTED, sock)
@@ -105,6 +145,7 @@ def respond(sock):
 
 def transmit(msg, sock):
     """It might take several sends to get the whole message out"""
+
     sent = 0
     while sent < len(msg):
         buff = bytes(msg[sent:], encoding="utf-8")
@@ -122,6 +163,7 @@ def get_options():
     Options from command line or configuration file.
     Returns namespace object with option value for port
     """
+
     # Defaults from configuration files;
     #   on conflict, the last value read has precedence
     options = config.configuration()
@@ -138,13 +180,15 @@ def get_options():
 def main():
     options = get_options()
     port = options.PORT
+
     if options.DEBUG:
         log.setLevel(logging.DEBUG)
+
     sock = listen(port)
     log.info("Listening on port {}".format(port))
     log.info("Socket is {}".format(sock))
-    serve(sock, respond)
 
+    serve(sock, respond)
 
 if __name__ == "__main__":
     main()
