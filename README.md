@@ -1,8 +1,21 @@
 # UOCIS322 - Project 1 #
 
-This project will get you started with creating a simple webpage server.
+## Completed Project Info
+
+Zack Johnson
+
+This project lays the groundwork for a (very) basic webpage server.
+The server currently only responds to GET requests. If the requested file exists in the `pages/` subdirectory, it will serve those files. If the request is empty (i.e., no specific request is made), it will serve an ASCII image of a cat.
+Any requests with illegal characters (`..` or `~`), or any requests for files that do not exist in the `pages/` directory, will respond with the appropriate status code and error message.
+
+To start the server, use the `make start` command.
+Once the server is running, send your requests (via `curl` or your web browser).
+To stop the server, use the `make stop` command.
+
 
 ## Getting started
+
+This project will get you started with creating a simple webpage server.
 
 Directory structure:
 
