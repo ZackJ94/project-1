@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 import socket    # Basic TCP/IP communication on the internet
 import _thread   # Response computation runs concurrently with main program
 
-import os
+import os        # useful for checking and navigating directories
 
 # store starting directory
 home = os.getcwd()
@@ -100,39 +100,43 @@ def respond(sock):
     log.info("--- Received request ----")
     log.info("Request was {}\n***\n".format(request))
 
-    # get files (if any) from pages
-    files = os.listdir("pages/")
-
     parts = request.split()
     if len(parts) > 1 and parts[0] == "GET":
 
         # check request for illegal chars (.. or ~)
         if ("~" in parts[1]) or (".." in parts[1]):
             transmit(STATUS_FORBIDDEN, sock)
-            transmit("Request cannot include characters ~ or ..\n", sock)
-
-        # if no files exist in pages...
-        elif (len(files) == 0):
-            transmit(STATUS_NOT_FOUND, sock)
-            transmit("No files found in DOCROOT!", sock)
-
-        # if files do exist in pages...
-        else:
+            transmit("\nRequest cannot include characters ~ or .. >_<\n", sock)
+        
+        # if the request is empty, just serve the CAT
+        elif parts[1] == "/":
             transmit(STATUS_OK, sock)
+            transmit(CAT,sock)
 
+        else:
+            # go to the pages directory ("DOCROOT")
             os.chdir("./pages")
-            
+
+            files = os.listdir()
+            found = False
+
             for file in files:
+                if (file == parts[1][1:]):
 
-                f = open(file, 'r')
-                for line in f.readlines():
-                    transmit(line, sock)
-                f.close()
+                    found = True
+                    transmit(STATUS_OK, sock)
 
+                    f = open(file, 'r')
+                    for line in f.readlines():
+                        transmit(line, sock)
+                    f.close()
+            
+            if not found:
+                transmit(STATUS_NOT_FOUND, sock)
+                transmit(f"\nCould not find file with name {parts[1][1:]} :(\n", sock)
+            
             os.chdir(home)
 
-        #transmit(STATUS_OK, sock)
-        #transmit(CAT, sock)
     else:
         log.info("Unhandled request: {}".format(request))
         transmit(STATUS_NOT_IMPLEMENTED, sock)
