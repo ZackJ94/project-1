@@ -114,12 +114,14 @@ def respond(sock):
             transmit(CAT,sock)
 
         else:
-            # go to the pages directory ("DOCROOT")
-            os.chdir("./pages")
+            # get docroot from options
+            docroot = get_options().DOCROOT
 
+            # go to provided docroot, not hardcoded directory :)
+            os.chdir(docroot)
             files = os.listdir()
-            found = False
 
+            found = False
             for file in files:
                 if (file == parts[1][1:]):
 
@@ -131,11 +133,12 @@ def respond(sock):
                         transmit(line, sock)
                     f.close()
             
+            # go back to starting directory once we're done
+            os.chdir(home)
+            
             if not found:
                 transmit(STATUS_NOT_FOUND, sock)
                 transmit(f"\nCould not find file with name {parts[1][1:]} :(\n", sock)
-            
-            os.chdir(home)
 
     else:
         log.info("Unhandled request: {}".format(request))
